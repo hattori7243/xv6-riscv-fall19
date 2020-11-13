@@ -18,9 +18,9 @@ int main(int argc, char *argv[])
 
         read(p1[0], s, 4);
         close(p1[0]);
-        printf("child%d:received %c%c%c%c\n", pid_child, s[0], s[1], s[2], s[3]);
+        printf("%d: received %c%c%c%c\n", pid_child, s[0], s[1], s[2], s[3]);
 
-        printf("child%d:sent pong\n", pid_child);
+        //printf("child%d:sent pong\n", pid_child);
         write(p2[1], "pong", 4);
         close(p2[1]);
         exit();
@@ -29,13 +29,13 @@ int main(int argc, char *argv[])
     {
         pid_parent = getpid();
 
-        printf("parent%d:sent ping\n", pid_parent);
+        //printf("parent%d:sent ping\n", pid_parent);
         write(p1[1], "ping", 4);
         close(p1[1]);
 
         read(p2[0], s, 4);
         close(p2[0]);
-        printf("parent%d:received %c%c%c%c\n", pid_parent, s[0], s[1], s[2], s[3]);
+        printf("%d: received %c%c%c%c\n", pid_parent, s[0], s[1], s[2], s[3]);
         exit();
     }
 }

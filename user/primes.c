@@ -10,7 +10,7 @@ void received(int p[2])
     int byte_count = read(p[0], &first_element, sizeof(int));
     pid = getpid();
     if (byte_count > 0)
-        printf("pid = %d : prime %d\n", pid, first_element);
+        printf("prime %d\n", first_element);
     else
     {
         exit();
