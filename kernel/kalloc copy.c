@@ -21,25 +21,30 @@ struct run {
 struct {
   struct spinlock lock;
   struct run *freelist;
-  struct kmem *next;
-} kmem[NCPU];
-
+} kmem;
 
 void
 kinit()
 {
-  char s[]="kmem0";
-  for (int i = 0; i < NCPU; i++)
-  {
-    initlock(&kmem[i].lock, s);
-    printf("init lock %d\n",i);
-    s[4]=s[4]+1;
-  }
+  initlock(&kmem.lock, "kmem");
   freerange(end, (void*)PHYSTOP);
 }
 
 void
-kfree_switch(void *pa,int cpu_no)
+freerange(void *pa_start, void *pa_end)
+{
+  char *p;
+  p = (char*)PGROUNDUP((uint64)pa_start);
+  for(; p + PGSIZE <= (char*)pa_end; p += PGSIZE)
+    kfree(p);
+}
+
+// Free the page of physical memory pointed at by v,
+// which normally should have been returned by a
+// call to kalloc().  (The exception is when
+// initializing the allocator; see kinit above.)
+void
+kfree(void *pa)
 {
   struct run *r;
 
@@ -51,63 +56,27 @@ kfree_switch(void *pa,int cpu_no)
 
   r = (struct run*)pa;
 
-  acquire(&kmem[cpu_no].lock);
-  r->next = kmem[cpu_no].freelist;
-  kmem[cpu_no].freelist = r;
-  release(&kmem[cpu_no].lock);
-}
-
-void
-freerange(void *pa_start, void *pa_end)
-{
-  char *p;
-  p = (char*)PGROUNDUP((uint64)pa_start);
-  for(int i=0; p + PGSIZE <= (char*)pa_end; p += PGSIZE)
-    {
-      kfree_switch(p,i%NCPU);
-      i++;
-    }
-}
-
-// Free the page of physical memory pointed at by v,
-// which normally should have been returned by a
-// call to kalloc().  (The exception is when
-// initializing the allocator; see kinit above.)
-
-
-void kfree(void *pa){
-  push_off();
-  int cpu_no=cpuid()%NCPU;
-  pop_off();
-
-  kfree_switch(pa,cpu_no);
+  acquire(&kmem.lock);
+  r->next = kmem.freelist;
+  kmem.freelist = r;
+  release(&kmem.lock);
 }
 
 // Allocate one 4096-byte page of physical memory.
 // Returns a pointer that the kernel can use.
 // Returns 0 if the memory cannot be allocated.
 void *
-kalloc_switch(int cpu_no)
+kalloc(void)
 {
   struct run *r;
 
-  acquire(&kmem[cpu_no].lock);
-  r = kmem[cpu_no].freelist;
+  acquire(&kmem.lock);
+  r = kmem.freelist;
   if(r)
-    kmem[cpu_no].freelist = r->next;
-  release(&kmem[cpu_no].lock);
+    kmem.freelist = r->next;
+  release(&kmem.lock);
 
   if(r)
     memset((char*)r, 5, PGSIZE); // fill with junk
   return (void*)r;
-
-}
-
-void * kalloc(void)
-{
-  push_off();
-  int cpu_no=cpuid()%NCPU;
-  pop_off();
-
-  return kalloc_switch(cpu_no);
 }
